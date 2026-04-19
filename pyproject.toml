@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "startq"
+version = "0.3.0"
+authors = [
+  { name="Phil Hills", email="phil@philhills.ai" },
+]
+description = "Never lose your AI chats or work again. Boot, monitor, and shut down your AI workflow."
+readme = {file = "README.py", content-type = "text/plain"}
+requires-python = ">=3.10"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Intended Audience :: Developers",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Phil-Hills/startq"
+Issues = "https://github.com/Phil-Hills/startq/issues"
+
+[project.scripts]
+startq = "startq.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["startq*"]
+exclude = ["tests*"]
