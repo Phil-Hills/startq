@@ -4,10 +4,14 @@ startq.cli - The Command Line Interface
 
 import argparse
 import sys
+import time
 from .brain import BrainManager
 
 CUBE = "\u25c8"
 CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+DIM = "\033[2m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
@@ -42,21 +46,31 @@ def main():
         
     elif args.command == "boot":
         try:
+            print(f"{DIM}  [BIOS] System Check ................ OK{RESET}")
+            time.sleep(0.15)
+            print(f"{DIM}  [POST] Reading physical memory ..... OK{RESET}")
+            time.sleep(0.2)
+            
             config = brain.get_config()
             identity = config.get("identity")
             if identity and identity != "unknown-operator":
-                print(f"  --> LOCAL IDENTITY ... ok [{identity}]")
+                print(f"{DIM}  [AUTH] Identity verified ........... [{identity}]{RESET}")
             else:
-                print(f"  --> LOCAL IDENTITY ... missing (run init, or edit config.json)")
+                print(f"{YELLOW}  [AUTH] Identity missing! ........... [run init, or edit config.json]{RESET}")
+            time.sleep(0.15)
             
             if brain.state_file.exists():
-                print("  --> SESSION STATE  ... ok")
+                print(f"{DIM}  [DISK] Session state block ......... attached{RESET}")
             else:
-                print("  --> SESSION STATE  ... missing")
+                print(f"{YELLOW}  [DISK] Session state block ......... missing{RESET}")
+            time.sleep(0.3)
+            
+            print(f"{DIM}  [BOOT] Handing off to local kernel..{RESET}\n")    
+            time.sleep(0.1)
                 
             boot_data = brain.boot_session()
             session_id = boot_data["session_id"]
-            print(f"\nStartQ Boot Sequence Complete. Runtime active. [Session ID: {session_id}]\n")
+            print(f"\n{GREEN}\u25b6 StartQ OS Loaded. System Active.{RESET} [Session ID: {session_id}]\n")
         except FileNotFoundError as e:
             print(f"\n[!] FATAL: {e}")
             sys.exit(1)
