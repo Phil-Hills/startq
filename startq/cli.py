@@ -30,6 +30,10 @@ def main():
 
     args = parser.parse_args()
     
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+        
     banner()
     brain = BrainManager()
 
@@ -40,8 +44,8 @@ def main():
         try:
             config = brain.get_config()
             identity = config.get("identity", "unknown-operator")
-            print(f"  --> GATE 0: IDENTITY ... pass [{identity}]")
-            print("  --> GATE 1: SESSION  ... pass")
+            print(f"  --> LOCAL IDENTITY ... present [{identity}]")
+            print("  --> SESSION STATE  ... initialized")
             session_id = brain.boot_session()
             print(f"\nStartQ Boot Sequence Complete. Runtime active. [Session ID: {session_id}]\n")
         except FileNotFoundError as e:

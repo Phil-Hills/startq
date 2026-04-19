@@ -6,6 +6,7 @@ import json
 import os
 import uuid
 import datetime
+import getpass
 from pathlib import Path
 
 class BrainManager:
@@ -21,12 +22,13 @@ class BrainManager:
             return False
             
         self.brain_dir.mkdir(parents=True, exist_ok=True)
-        self.state_file.write_text(json.dumps({"initialized_at": datetime.datetime.utcnow().isoformat()}))
+        self.state_file.write_text(json.dumps({"initialized_at": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
         
         config_file = self.root_dir / "config.json"
         if not config_file.exists():
+            user = getpass.getuser()
             config_file.write_text(json.dumps({
-                "identity": "your-alias-here",
+                "identity": user,
                 "role": "ai-operator"
             }, indent=2))
             
@@ -58,9 +60,10 @@ class BrainManager:
         recent_context = None
         if sessions:
             try:
-                recent_context = json.loads(sessions[0].read_text()).get("context")
-            except Exception:
-                pass
+                data = json.loads(sessions[0].read_text())
+                recent_context = data.get("context")
+            except json.JSONDecodeError as e:
+                print(f"[!] WARNING: The most recent session file is corrupted: {e}")
                 
         session_id = str(uuid.uuid4())
         print(f"[\u2713] CONTEXT: Loaded from {len(sessions)} past sessions.")
@@ -76,12 +79,12 @@ class BrainManager:
         
         payload = {
             "session_id": session_id,
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "context": context_summary
         }
         
         receipt_path = self.brain_dir / f"{session_id}.json"
         receipt_path.write_text(json.dumps(payload, indent=2))
-        print(f"[\u2713] SESSION ENDED: State persistently synced to memory.")
+        print(f"[\u2713] SESSION ENDED: State synced to local JSON memory.")
         print(f"[\u2713] CUBE RECEIPT: {session_id}")
         return session_id
