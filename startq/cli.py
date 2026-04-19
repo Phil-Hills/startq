@@ -5,6 +5,8 @@ startq.cli - The Command Line Interface
 import argparse
 import sys
 import time
+import subprocess
+import shlex
 from .brain import BrainManager
 
 CUBE = "\u25c8"
@@ -64,6 +66,20 @@ def main():
             else:
                 print(f"{YELLOW}  [DISK] Session state block ......... missing{RESET}")
             time.sleep(0.3)
+            
+            daemons = config.get("daemons", {})
+            if daemons:
+                print(f"{DIM}  [MESH] Waking local agent daemons..{RESET}")
+                time.sleep(0.1)
+                for daemon_name, daemon_cmd in daemons.items():
+                    print(f"{DIM}    \u251c\u2500\u2500> [ACTIVE] {daemon_name}{RESET}")
+                    try:
+                        cmd_args = shlex.split(daemon_cmd)
+                        subprocess.Popen(cmd_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception as e:
+                        print(f"{YELLOW}    \u2514\u2500\u2500> [FAILED] {daemon_name}: {e}{RESET}")
+                    time.sleep(0.2)
+                time.sleep(0.2)
             
             print(f"{DIM}  [BOOT] Handing off to local kernel..{RESET}\n")    
             time.sleep(0.1)

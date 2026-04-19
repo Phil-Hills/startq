@@ -29,7 +29,8 @@ class BrainManager:
             user = getpass.getuser()
             config_file.write_text(json.dumps({
                 "identity": user,
-                "role": "ai-operator"
+                "role": "ai-operator",
+                "daemons": {}
             }, indent=2))
             
         print(f"  [DISK] StartQ Memory mapped at {self.brain_dir.absolute()}")

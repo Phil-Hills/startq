@@ -36,6 +36,7 @@ startq end -c "Finished refactoring the database schemas."
 
 - **Local First**: Your Brain is a local JSON object directory (`.startq/brain/`). No cloud dependencies, no lock-in.
 - **Universal Agnosticism**: Point any agent (Claude Code, Cursor, Antigravity, or custom scripts) to the `.startq/` directory to share context across sessions.
+- **Daemons (Systemd for AI)**: Add scripts to `.startq/config.json` under `"daemons"`, and StartQ will spawn them as detached background runners on boot.
 - **Zero Dependencies**: Pure python standard library.
 
 ## License
