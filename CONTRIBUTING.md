@@ -2,7 +2,7 @@
 
 First, thank you for considering contributing to StartQ! 
 
-StartQ is designed to be the foundational operational layer for AI agents. Our goal is strict stability and zero amnesia. 
+StartQ is a command-line utility for persisting agent session context locally. Our goal is a small, reliable tool that does one thing well. 
 
 ## How to Contribute
 

@@ -42,9 +42,21 @@ class TestBrainManager(unittest.TestCase):
         self.brain.init_brain()
         self.brain.end_session("First context")
         
-        # Test that it triggers without error
-        session_id = self.brain.boot_session()
-        self.assertIsNotNone(session_id)
+        result = self.brain.boot_session()
+        self.assertEqual(result["recent_context"], "First context")
+        self.assertEqual(result["sessions_found"], 1)
 
+    def test_boot_handles_corrupted_session_file(self):
+        self.brain.init_brain()
+        
+        # Write a corrupted JSON file
+        bad_file = self.brain.brain_dir / "corrupted.json"
+        bad_file.write_text("{ not valid json")
+        
+        # Should not raise, but should warn internally
+        result = self.brain.boot_session()
+        self.assertIsNotNone(result["session_id"])
+        self.assertIsNone(result["recent_context"])
+        
 if __name__ == "__main__":
     unittest.main()

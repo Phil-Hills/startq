@@ -12,10 +12,10 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 def banner():
-    print(f"\n{CYAN}{CUBE}{RESET} {BOLD}StartQ{RESET} \u2014 The Operational Layer for AI\n")
+    print(f"\n{CYAN}{CUBE}{RESET} {BOLD}StartQ{RESET} \u2014 Persist session context across AI agent runs\n")
 
 def main():
-    parser = argparse.ArgumentParser(description="StartQ - Systemd for AI Agents.")
+    parser = argparse.ArgumentParser(description="StartQ - Local-first, zero dependencies.")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Command: init
@@ -43,10 +43,19 @@ def main():
     elif args.command == "boot":
         try:
             config = brain.get_config()
-            identity = config.get("identity", "unknown-operator")
-            print(f"  --> LOCAL IDENTITY ... present [{identity}]")
-            print("  --> SESSION STATE  ... initialized")
-            session_id = brain.boot_session()
+            identity = config.get("identity")
+            if identity and identity != "unknown-operator":
+                print(f"  --> LOCAL IDENTITY ... ok [{identity}]")
+            else:
+                print(f"  --> LOCAL IDENTITY ... missing (run init, or edit config.json)")
+            
+            if brain.state_file.exists():
+                print("  --> SESSION STATE  ... ok")
+            else:
+                print("  --> SESSION STATE  ... missing")
+                
+            boot_data = brain.boot_session()
+            session_id = boot_data["session_id"]
             print(f"\nStartQ Boot Sequence Complete. Runtime active. [Session ID: {session_id}]\n")
         except FileNotFoundError as e:
             print(f"\n[!] FATAL: {e}")

@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
   { name="Phil Hills", email="phil@philhills.ai" },
 ]
-description = "The operational layer for AI. Agents that remember."
+description = "Persist session context across AI agent runs. Local-first, zero dependencies."
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -23,3 +23,4 @@ startq = "startq.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["startq*"]
+exclude = ["tests*"]

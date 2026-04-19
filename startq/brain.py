@@ -66,11 +66,12 @@ class BrainManager:
                 print(f"[!] WARNING: The most recent session file is corrupted: {e}")
                 
         session_id = str(uuid.uuid4())
-        print(f"[\u2713] CONTEXT: Loaded from {len(sessions)} past sessions.")
-        if recent_context:
-            print(f"[\u2713] RECENT STATE: {recent_context[:100]}...")
-            
-        return session_id
+        
+        return {
+            "session_id": session_id,
+            "recent_context": recent_context,
+            "sessions_found": len(sessions)
+        }
 
     def end_session(self, context_summary: str):
         """Write the session context back to the Brain to prevent amnesia."""
