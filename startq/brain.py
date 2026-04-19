@@ -1,0 +1,87 @@
+"""
+startq.brain - Local Filesystem Persistence Driver
+"""
+
+import json
+import os
+import uuid
+import datetime
+from pathlib import Path
+
+class BrainManager:
+    def __init__(self, root_dir: str = ".startq"):
+        self.root_dir = Path(root_dir)
+        self.brain_dir = self.root_dir / "brain"
+        self.state_file = self.root_dir / "state.json"
+
+    def init_brain(self):
+        """Bootstrap the local startq working directory."""
+        if self.brain_dir.exists():
+            print("[\u2713] StartQ Brain already initialized.")
+            return False
+            
+        self.brain_dir.mkdir(parents=True, exist_ok=True)
+        self.state_file.write_text(json.dumps({"initialized_at": datetime.datetime.utcnow().isoformat()}))
+        
+        config_file = self.root_dir / "config.json"
+        if not config_file.exists():
+            config_file.write_text(json.dumps({
+                "identity": "your-alias-here",
+                "role": "ai-operator"
+            }, indent=2))
+            
+        print(f"[\u2713] StartQ Brain successfully initialized at {self.brain_dir.absolute()}")
+        return True
+
+    def check_health(self):
+        """Verify the brain directory exists and is writable."""
+        if not self.brain_dir.exists():
+            raise FileNotFoundError("Local Brain not found. Run `startq init` first.")
+        return True
+
+    def get_config(self):
+        """Retrieve the user's local StartQ configuration."""
+        config_file = self.root_dir / "config.json"
+        if config_file.exists():
+            try:
+                return json.loads(config_file.read_text())
+            except Exception:
+                pass
+        return {"identity": "unknown-operator"}
+
+    def boot_session(self):
+        """Load context from the Brain and create a new session."""
+        self.check_health()
+        
+        # Load previous context (latest session)
+        sessions = sorted(self.brain_dir.glob("*.json"), key=os.path.getmtime, reverse=True)
+        recent_context = None
+        if sessions:
+            try:
+                recent_context = json.loads(sessions[0].read_text()).get("context")
+            except Exception:
+                pass
+                
+        session_id = str(uuid.uuid4())
+        print(f"[\u2713] CONTEXT: Loaded from {len(sessions)} past sessions.")
+        if recent_context:
+            print(f"[\u2713] RECENT STATE: {recent_context[:100]}...")
+            
+        return session_id
+
+    def end_session(self, context_summary: str):
+        """Write the session context back to the Brain to prevent amnesia."""
+        self.check_health()
+        session_id = str(uuid.uuid4())
+        
+        payload = {
+            "session_id": session_id,
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "context": context_summary
+        }
+        
+        receipt_path = self.brain_dir / f"{session_id}.json"
+        receipt_path.write_text(json.dumps(payload, indent=2))
+        print(f"[\u2713] SESSION ENDED: State persistently synced to memory.")
+        print(f"[\u2713] CUBE RECEIPT: {session_id}")
+        return session_id

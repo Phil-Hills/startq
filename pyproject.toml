@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "startq"
+version = "0.1.0"
+authors = [
+  { name="Phil Hills", email="phil@philhills.ai" },
+]
+description = "The operational layer for AI. Agents that remember."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.scripts]
+startq = "startq.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["startq*"]
