@@ -7,7 +7,13 @@ import os
 import uuid
 import datetime
 import getpass
+import hashlib
+import shutil
+import subprocess
 from pathlib import Path
+
+class SecureBootViolation(Exception):
+    pass
 
 class BrainManager:
     def __init__(self, root_dir: str = ".startq"):
@@ -37,9 +43,17 @@ class BrainManager:
         return True
 
     def check_health(self):
-        """Verify the brain directory exists and is writable."""
+        """Execute physical POST hardware diagnostics."""
         if not self.brain_dir.exists():
             raise FileNotFoundError("Local Brain not found. Run `startq init` first.")
+            
+        if not os.access(self.brain_dir, os.R_OK | os.W_OK):
+            raise PermissionError(f"FATAL: Insufficient IO permissions on {self.brain_dir}")
+            
+        free_space = shutil.disk_usage(self.brain_dir).free
+        if free_space < 50 * 1024 * 1024:
+            raise OSError(f"FATAL: NVMe buffer exhausted. Only {free_space} bytes free.")
+            
         return True
 
     def get_config(self):
@@ -62,9 +76,24 @@ class BrainManager:
         if sessions:
             try:
                 data = json.loads(sessions[0].read_text())
+                
+                stored_signature = data.get("signature")
+                if stored_signature:
+                    verify_data = data.copy()
+                    del verify_data["signature"]
+                    serialized_verify = json.dumps(verify_data, sort_keys=True).encode("utf-8")
+                    calculated_signature = hashlib.sha256(serialized_verify).hexdigest()
+                    if calculated_signature != stored_signature:
+                        raise SecureBootViolation(f"Hash mismatch ({calculated_signature[:8]} != {stored_signature[:8]})")
+                else:
+                    print(f"  [!] kernel_warning: legacy session loaded without cryptographic signature")
+                    
                 recent_context = data.get("context")
             except json.JSONDecodeError as e:
                 print(f"  [!] kernel_panic: recent session blocked (corrupted format: {e})")
+            except SecureBootViolation as e:
+                print(f"  [!] kernel_panic: Secure Boot Signature Violation: {e}")
+                recent_context = None
                 
         session_id = str(uuid.uuid4())
         
@@ -88,6 +117,16 @@ class BrainManager:
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "context": context_summary
         }
+        
+        try:
+            branch = subprocess.check_output(["git", "branch", "--show-current"], stderr=subprocess.DEVNULL).decode().strip()
+            status = subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.DEVNULL).decode().splitlines()
+            payload["hibernation_state"] = {"branch": branch, "modified_files": status}
+        except Exception:
+            payload["hibernation_state"] = None
+            
+        serialized_payload = json.dumps(payload, sort_keys=True).encode("utf-8")
+        payload["signature"] = hashlib.sha256(serialized_payload).hexdigest()
         
         receipt_path = self.brain_dir / f"{session_id}.json"
         receipt_path.write_text(json.dumps(payload, indent=2))

@@ -57,6 +57,20 @@ class TestBrainManager(unittest.TestCase):
         result = self.brain.boot_session()
         self.assertIsNotNone(result["session_id"])
         self.assertIsNone(result["recent_context"])
+
+    def test_secure_boot_tamper_rejection(self):
+        self.brain.init_brain()
+        session_id = self.brain.end_session("Valid context")
+        
+        # Tamper with the JSON payload
+        receipt_path = self.brain.brain_dir / f"{session_id}.json"
+        data = json.loads(receipt_path.read_text())
+        data["context"] = "Malicious context injected"
+        receipt_path.write_text(json.dumps(data, indent=2))
+        
+        # Boot should reject it due to signature mismatch and not load the malicious context
+        result = self.brain.boot_session()
+        self.assertIsNone(result["recent_context"])
         
 if __name__ == "__main__":
     unittest.main()

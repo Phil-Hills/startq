@@ -49,9 +49,8 @@ def main():
     elif args.command == "boot":
         try:
             print(f"{DIM}  [BIOS] System Check ................ OK{RESET}")
-            time.sleep(0.15)
+            brain.check_health()
             print(f"{DIM}  [POST] Reading physical memory ..... OK{RESET}")
-            time.sleep(0.2)
             
             config = brain.get_config()
             identity = config.get("identity")
@@ -59,18 +58,15 @@ def main():
                 print(f"{DIM}  [AUTH] Identity verified ........... [{identity}]{RESET}")
             else:
                 print(f"{YELLOW}  [AUTH] Identity missing! ........... [run init, or edit config.json]{RESET}")
-            time.sleep(0.15)
             
             if brain.state_file.exists():
                 print(f"{DIM}  [DISK] Session state block ......... attached{RESET}")
             else:
                 print(f"{YELLOW}  [DISK] Session state block ......... missing{RESET}")
-            time.sleep(0.3)
             
             daemons = config.get("daemons", {})
             if daemons:
                 print(f"{DIM}  [MESH] Waking local agent daemons..{RESET}")
-                time.sleep(0.1)
                 for daemon_name, daemon_cmd in daemons.items():
                     print(f"{DIM}    \u251c\u2500\u2500> [ACTIVE] {daemon_name}{RESET}")
                     try:
@@ -78,17 +74,17 @@ def main():
                         subprocess.Popen(cmd_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     except Exception as e:
                         print(f"{YELLOW}    \u2514\u2500\u2500> [FAILED] {daemon_name}: {e}{RESET}")
-                    time.sleep(0.2)
-                time.sleep(0.2)
             
             print(f"{DIM}  [BOOT] Handing off to local kernel..{RESET}\n")    
-            time.sleep(0.1)
                 
             boot_data = brain.boot_session()
             session_id = boot_data["session_id"]
             print(f"\n{GREEN}\u25b6 StartQ OS Loaded. System Active.{RESET} [Session ID: {session_id}]\n")
         except FileNotFoundError as e:
             print(f"\n[!] FATAL: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"\n[!] FATAL KERNEL PANIC: {e}")
             sys.exit(1)
             
     elif args.command == "end":
