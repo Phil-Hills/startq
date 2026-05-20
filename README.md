@@ -33,10 +33,10 @@ You have API connections, database credentials, multiple AI models, agent script
 StartQ              AutoQ               EndQ
 POWER ON            MONITORING          SHUTDOWN
 
-Health check        Record actions      Capture state
-Load context        Track decisions     Git snapshot
-Verify signatures   Log milestones      Sign receipt
-Spawn daemons       Search history      Sync to cloud
+Health check        Record actions      Save chat session
+Load last chat      Track decisions     Convert to JSONL
+Verify signatures   Log milestones      Git snapshot
+Spawn daemons       Search history      Sign receipt
 
 Ready               Running             Saved
 ```
@@ -60,11 +60,12 @@ startq log                                     # View recordings
 startq shutdown -c "Payment API complete."     # Save everything
 ```
 
-Tomorrow:
+EndQ captures your entire AI chat session, converts it to JSONL, and stores it locally. Tomorrow:
 
 ```bash
 startq boot
 # Context restored: "Payment API complete."
+# Full chat transcript from yesterday loaded.
 # Zero amnesia.
 ```
 
@@ -125,12 +126,17 @@ startq boot --local      # force local-only
   brain/                Signed session receipts (JSON)
     a1b2c3d4.json       Session from yesterday
     e5f6g7h8.json       Session from today
+  sessions/             Saved chat transcripts (TXT)
+    2026-05-19_0830_a1b2.txt
+    2026-05-20_2200_c3d4.txt
   recordings/           Activity logs (JSONL)
     2026-05-19.jsonl
     2026-05-20.jsonl
   config.json           Identity + daemons + cloud
   state.json            Init timestamp
 ```
+
+**Chat sessions are saved automatically.** When you run `startq shutdown`, EndQ finds your current AI chat (Antigravity IDE, Claude Code, or any IDE that stores conversation logs), saves the full transcript as a `.txt` file, and embeds a checksum in the signed receipt. On next `startq boot`, your last session context is restored so you pick up exactly where you left off.
 
 **Session receipts** are SHA-256 signed. On boot, StartQ recalculates the hash. If it does not match, the session was tampered with and its context is rejected.
 
@@ -175,8 +181,8 @@ The developer who built StartQ did not lose anything. Session state was already 
 |:-----|:--------|:------|
 | `startq/brain.py` | Local persistence + cloud sync | ~180 |
 | `startq/autoq.py` | Session recorder | ~140 |
-| `startq/endq.py` | Graceful shutdown with signing | ~120 |
-| `startq/cli.py` | Command-line interface | ~250 |
+| `startq/endq.py` | Shutdown + transcript saving | ~280 |
+| `startq/cli.py` | Command-line interface | ~280 |
 | `startq/cloud_brain.py` | Optional REST client for cloud | ~130 |
 
 Read the source in 10 minutes. Fork and customize in 20. These are just Python scripts.
