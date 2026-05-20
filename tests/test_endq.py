@@ -98,6 +98,78 @@ class TestSessionShutdown(unittest.TestCase):
         receipts = list(brain_dir.glob("*.json"))
         self.assertEqual(len(receipts), 2)
 
+    def test_save_transcript_no_ide_returns_none(self):
+        result = self.shutdown.save_transcript()
+        # Returns (None, None, None) if no IDE brain exists
+        self.assertEqual(len(result), 3)
+
+    def test_sessions_dir_created_on_transcript(self):
+        # Create a fake IDE brain directory
+        fake_brain = Path(self.test_dir) / "fake_brain"
+        fake_conv = fake_brain / "aaaa1111-bbbb-cccc-dddd-eeeeffffaaaa"
+        logs_dir = fake_conv / ".system_generated" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        overview = logs_dir / "overview.txt"
+        overview.write_text("USER: Hello\nAGENT: Hi there", encoding="utf-8")
+
+        # Monkey-patch the brain paths
+        import startq.endq as endq_mod
+        original = endq_mod._ANTIGRAVITY_BRAIN_PATHS
+        endq_mod._ANTIGRAVITY_BRAIN_PATHS = [fake_brain]
+
+        try:
+            txt_path, conv_id, content = self.shutdown.save_transcript()
+            self.assertIsNotNone(txt_path)
+            self.assertIn("aaaa1111", conv_id)
+            self.assertIn("Hello", content)
+            self.assertTrue(Path(txt_path).exists())
+            saved = Path(txt_path).read_text(encoding="utf-8")
+            self.assertIn("Session Transcript", saved)
+            self.assertIn("Hello", saved)
+        finally:
+            endq_mod._ANTIGRAVITY_BRAIN_PATHS = original
+
+    def test_read_session_content_overview(self):
+        fake_dir = Path(self.test_dir) / "session_test"
+        logs = fake_dir / ".system_generated" / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        (logs / "overview.txt").write_text("This is the full session.", encoding="utf-8")
+        content = self.shutdown._read_session_content(fake_dir)
+        self.assertEqual(content, "This is the full session.")
+
+    def test_read_session_content_fallback_transcript(self):
+        fake_dir = Path(self.test_dir) / "session_test2"
+        logs = fake_dir / ".system_generated" / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        entries = [
+            json.dumps({"source": "USER_EXPLICIT", "content": "What is 2+2?"}),
+            json.dumps({"source": "MODEL", "content": "4"}),
+        ]
+        (logs / "transcript.jsonl").write_text("\n".join(entries), encoding="utf-8")
+        content = self.shutdown._read_session_content(fake_dir)
+        self.assertIn("[USER]", content)
+        self.assertIn("[AGENT]", content)
+        self.assertIn("2+2", content)
+
+    def test_receipt_includes_transcript_path(self):
+        fake_brain = Path(self.test_dir) / "fake_brain2"
+        fake_conv = fake_brain / "bbbb2222-cccc-dddd-eeee-ffffaaaabbbb"
+        logs_dir = fake_conv / ".system_generated" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / "overview.txt").write_text("Full session content here.", encoding="utf-8")
+
+        import startq.endq as endq_mod
+        original = endq_mod._ANTIGRAVITY_BRAIN_PATHS
+        endq_mod._ANTIGRAVITY_BRAIN_PATHS = [fake_brain]
+
+        try:
+            receipt = self.shutdown.create_receipt("Test with transcript")
+            self.assertIn("transcript_file", receipt)
+            self.assertIn("transcript_checksum", receipt)
+            self.assertIn("conversation_id", receipt)
+        finally:
+            endq_mod._ANTIGRAVITY_BRAIN_PATHS = original
+
 
 if __name__ == "__main__":
     unittest.main()

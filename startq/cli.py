@@ -246,6 +246,15 @@ def main():
         else:
             print(f"{DIM}    \u2514\u2500\u2500> no recordings today{RESET}")
 
+        print(f"{DIM}  [TRANSCRIPT] Saving chat session...{RESET}")
+        txt_path, conv_id, _ = shutdown.save_transcript()
+        if txt_path:
+            print(f"{DIM}    \u2514\u2500\u2500> saved: {txt_path}{RESET}")
+        elif conv_id:
+            print(f"{DIM}    \u2514\u2500\u2500> session {conv_id[:12]}... has no content yet{RESET}")
+        else:
+            print(f"{DIM}    \u2514\u2500\u2500> no IDE session found{RESET}")
+
         print(f"{DIM}  [SNAPSHOT] Capturing git state...{RESET}")
         git = shutdown.capture_git_state()
         if git:
@@ -268,6 +277,8 @@ def main():
 
         print(f"\n{GREEN}\u25c8 EndQ complete.{RESET} Session closed cleanly.")
         print(f"  {DIM}Receipt: .startq/brain/{session_id}.json{RESET}")
+        if txt_path:
+            print(f"  {DIM}Transcript: {txt_path}{RESET}")
         if records_count:
             print(f"  {DIM}Records: {records_count} entries archived{RESET}")
         print()
