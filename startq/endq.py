@@ -18,6 +18,9 @@ import hashlib
 import subprocess
 from pathlib import Path
 
+from .credentials import load_cloud_api_key
+from .integrity import sign_receipt
+
 
 # Default Antigravity IDE brain location (cross-platform)
 _ANTIGRAVITY_BRAIN_PATHS = [
@@ -212,7 +215,12 @@ class SessionShutdown:
 
     # ─── Receipt creation ────────────────────────────────────────────────
 
-    def create_receipt(self, context: str, archive: bool = False) -> dict:
+    def create_receipt(
+        self,
+        context: str,
+        archive: bool = False,
+        transcript: tuple[str | None, str | None, str | None] | None = None,
+    ) -> dict:
         """Create a signed session receipt.
 
         Args:
@@ -226,8 +234,7 @@ class SessionShutdown:
         git_state = self.capture_git_state()
         records_count = self.archive_recordings()
 
-        # Save transcript
-        transcript_path, conv_id, transcript_content = self.save_transcript()
+        transcript_path, conv_id, transcript_content = transcript or self.save_transcript()
 
         receipt = {
             "session_id": session_id,
@@ -252,19 +259,20 @@ class SessionShutdown:
         if archive:
             receipt["recordings"] = self.get_todays_recordings()
 
-        # Sign the receipt
-        serialized = json.dumps(receipt, sort_keys=True).encode("utf-8")
-        receipt["signature"] = hashlib.sha256(serialized).hexdigest()
+        return sign_receipt(receipt, self.root_dir)
 
-        return receipt
-
-    def shutdown(self, context: str, archive: bool = False,
-                 use_cloud: bool = False) -> str:
+    def shutdown(
+        self,
+        context: str,
+        archive: bool = False,
+        use_cloud: bool = False,
+        transcript: tuple[str | None, str | None, str | None] | None = None,
+    ) -> str:
         """Run the full shutdown sequence.
 
         Returns the session ID.
         """
-        receipt = self.create_receipt(context, archive=archive)
+        receipt = self.create_receipt(context, archive=archive, transcript=transcript)
         session_id = receipt["session_id"]
 
         # Write locally
@@ -283,7 +291,7 @@ class SessionShutdown:
                         from .cloud_brain import CloudBrainClient
                         client = CloudBrainClient(
                             brain_url=cloud_cfg["brain_url"],
-                            api_key=cloud_cfg.get("api_key"),
+                            api_key=load_cloud_api_key(self.root_dir, cloud_cfg),
                         )
                         result = client.sync_session(receipt)
                         receipt["cloud_sync"] = result

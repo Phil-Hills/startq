@@ -13,6 +13,7 @@ Commands:
 """
 
 import argparse
+import getpass
 import sys
 import subprocess
 import shlex
@@ -45,6 +46,11 @@ def main():
     boot_p = subparsers.add_parser("boot", help="Boot a new session (StartQ)")
     boot_p.add_argument("--cloud", action="store_true", help="Enable cloud sync")
     boot_p.add_argument("--local", action="store_true", help="Force local-only")
+    boot_p.add_argument(
+        "--allow-legacy",
+        action="store_true",
+        help="Allow one reviewed StartQ <=0.4 unkeyed receipt",
+    )
 
     # ─── record (AutoQ) ─────────────────────────────────────────────────
     rec_p = subparsers.add_parser("record", help="Record an activity (AutoQ)")
@@ -81,7 +87,7 @@ def main():
     # ─── upgrade ─────────────────────────────────────────────────────────
     up_p = subparsers.add_parser("upgrade", help="Connect to cloud Brain")
     up_p.add_argument("--url", type=str, help="Cloud Brain URL")
-    up_p.add_argument("--key", type=str, help="API key")
+    up_p.add_argument("--key", type=str, help="API key (prefer prompt or STARTQ_CLOUD_API_KEY)")
 
     # ─── status ──────────────────────────────────────────────────────────
     subparsers.add_parser("status", help="Show StartQ status")
@@ -146,9 +152,15 @@ def main():
 
             print(f"{DIM}  [BOOT] Handing off to local kernel..{RESET}\n")
 
-            boot_data = brain.boot_session(use_cloud=use_cloud)
+            boot_data = brain.boot_session(
+                use_cloud=use_cloud,
+                allow_legacy=args.allow_legacy,
+            )
             sid = boot_data["session_id"]
             cloud_tag = f" | Cloud: \u2713" if boot_data.get("cloud_connected") else ""
+            if boot_data.get("recent_context"):
+                print(f"\n{BOLD}  Restored context:{RESET}")
+                print(f"  {boot_data['recent_context']}")
             print(f"\n{GREEN}\u25b6 StartQ OS Loaded. System Active.{RESET} [Session: {sid[:8]}]{cloud_tag}\n")
 
         except FileNotFoundError as e:
@@ -247,7 +259,7 @@ def main():
             print(f"{DIM}    \u2514\u2500\u2500> no recordings today{RESET}")
 
         print(f"{DIM}  [TRANSCRIPT] Saving chat session...{RESET}")
-        txt_path, conv_id, _ = shutdown.save_transcript()
+        txt_path, conv_id, transcript_content = shutdown.save_transcript()
         if txt_path:
             print(f"{DIM}    \u2514\u2500\u2500> saved: {txt_path}{RESET}")
         elif conv_id:
@@ -269,6 +281,7 @@ def main():
             context=args.context,
             archive=args.archive,
             use_cloud=use_cloud,
+            transcript=(txt_path, conv_id, transcript_content),
         )
         print(f"{DIM}    \u2514\u2500\u2500> {session_id}{RESET}")
 
@@ -308,7 +321,7 @@ def main():
         api_key = args.key
         if not api_key:
             try:
-                api_key = input(f"  {CYAN}API Key (Enter to skip):{RESET} ").strip()
+                api_key = getpass.getpass(f"  {CYAN}API Key (Enter to skip):{RESET} ").strip()
             except (EOFError, KeyboardInterrupt):
                 api_key = ""
 
@@ -323,9 +336,11 @@ def main():
         except Exception as e:
             print(f"  {YELLOW}[!] Connection failed: {e}. Saving config anyway.{RESET}")
 
+        from .credentials import write_cloud_api_key
+        key_file = write_cloud_api_key(brain.root_dir, api_key)
         config["cloud"] = {
             "brain_url": brain_url,
-            "api_key": api_key or None,
+            "api_key_storage": "user-config" if key_file else None,
             "enabled": True,
         }
         brain.save_config(config)

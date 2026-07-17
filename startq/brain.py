@@ -7,10 +7,12 @@ import os
 import uuid
 import datetime
 import getpass
-import hashlib
 import shutil
 import subprocess
 from pathlib import Path
+
+from .credentials import load_cloud_api_key, write_cloud_api_key
+from .integrity import get_or_create_signing_key, sign_receipt, verify_receipt
 
 class SecureBootViolation(Exception):
     pass
@@ -29,9 +31,17 @@ class BrainManager:
         if cloud_cfg.get("enabled", False) and cloud_cfg.get("brain_url"):
             try:
                 from .cloud_brain import CloudBrainClient
+                api_key = load_cloud_api_key(self.root_dir, cloud_cfg)
+                if cloud_cfg.get("api_key"):
+                    write_cloud_api_key(self.root_dir, cloud_cfg["api_key"])
+                    cloud_cfg.pop("api_key", None)
+                    cloud_cfg.pop("api_key_file", None)
+                    cloud_cfg["api_key_storage"] = "user-config"
+                    config["cloud"] = cloud_cfg
+                    self.save_config(config)
                 self.cloud = CloudBrainClient(
                     brain_url=cloud_cfg["brain_url"],
-                    api_key=cloud_cfg.get("api_key"),
+                    api_key=api_key,
                 )
                 return True
             except Exception:
@@ -45,6 +55,7 @@ class BrainManager:
             return False
             
         self.brain_dir.mkdir(parents=True, exist_ok=True)
+        get_or_create_signing_key(self.root_dir)
         self.state_file.write_text(json.dumps({
             "initialized_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }))
@@ -90,7 +101,7 @@ class BrainManager:
         config_file = self.root_dir / "config.json"
         config_file.write_text(json.dumps(config, indent=2))
 
-    def boot_session(self, use_cloud: bool = False):
+    def boot_session(self, use_cloud: bool = False, allow_legacy: bool = False):
         """Load context from the Brain and create a new session."""
         self.check_health()
         
@@ -107,16 +118,17 @@ class BrainManager:
                 
                 stored_signature = data.get("signature")
                 if stored_signature:
-                    verify_data = data.copy()
-                    del verify_data["signature"]
-                    serialized_verify = json.dumps(verify_data, sort_keys=True).encode("utf-8")
-                    calculated_signature = hashlib.sha256(serialized_verify).hexdigest()
-                    if calculated_signature != stored_signature:
-                        raise SecureBootViolation(
-                            f"Hash mismatch ({calculated_signature[:8]} != {stored_signature[:8]})"
-                        )
+                    valid, profile = verify_receipt(data, self.root_dir)
+                    if not valid:
+                        raise SecureBootViolation(f"Receipt verification failed ({profile})")
+                    if profile == "legacy-sha256":
+                        if not allow_legacy:
+                            raise SecureBootViolation(
+                                "Legacy receipt blocked; rerun with --allow-legacy after review"
+                            )
+                        print("  [!] kernel_warning: legacy unkeyed SHA-256 receipt loaded")
                 else:
-                    print(f"  [!] kernel_warning: legacy session loaded without cryptographic signature")
+                    print("  [!] kernel_warning: legacy unsigned session loaded")
                     
                 recent_context = data.get("context")
             except json.JSONDecodeError as e:
@@ -178,9 +190,7 @@ class BrainManager:
         except Exception:
             payload["hibernation_state"] = None
             
-        # Sign locally
-        serialized_payload = json.dumps(payload, sort_keys=True).encode("utf-8")
-        payload["signature"] = hashlib.sha256(serialized_payload).hexdigest()
+        payload = sign_receipt(payload, self.root_dir)
         
         # Write locally (always)
         receipt_path = self.brain_dir / f"{session_id}.json"

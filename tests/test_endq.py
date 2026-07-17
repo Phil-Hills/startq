@@ -30,14 +30,12 @@ class TestSessionShutdown(unittest.TestCase):
         self.assertEqual(receipt["source"], "endq")
 
     def test_receipt_signature_is_valid(self):
-        import hashlib
+        from startq.integrity import verify_receipt
         receipt = self.shutdown.create_receipt("Signed session")
-
-        # Remove signature and recompute
-        sig = receipt.pop("signature")
-        serialized = json.dumps(receipt, sort_keys=True).encode("utf-8")
-        expected = hashlib.sha256(serialized).hexdigest()
-        self.assertEqual(sig, expected)
+        valid, profile = verify_receipt(receipt, self.test_dir)
+        self.assertTrue(valid)
+        self.assertEqual(profile, "hmac-sha256")
+        self.assertEqual(receipt["signature_algorithm"], "hmac-sha256")
 
     def test_shutdown_writes_receipt_file(self):
         session_id = self.shutdown.shutdown(context="Shutdown test")

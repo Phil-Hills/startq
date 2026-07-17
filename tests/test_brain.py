@@ -71,6 +71,60 @@ class TestBrainManager(unittest.TestCase):
         # Boot should reject it due to signature mismatch and not load the malicious context
         result = self.brain.boot_session()
         self.assertIsNone(result["recent_context"])
+
+    def test_legacy_sha256_receipt_still_loads(self):
+        import hashlib
+
+        self.brain.init_brain()
+        payload = {
+            "session_id": "legacy-session",
+            "timestamp": "2026-05-20T00:00:00+00:00",
+            "context": "Legacy context",
+            "type": "session_receipt",
+            "source": "startq",
+        }
+        serialized = json.dumps(payload, sort_keys=True).encode("utf-8")
+        payload["signature"] = hashlib.sha256(serialized).hexdigest()
+        (self.brain.brain_dir / "legacy.json").write_text(json.dumps(payload))
+
+        result = self.brain.boot_session(allow_legacy=True)
+        self.assertEqual(result["recent_context"], "Legacy context")
+
+    def test_legacy_sha256_receipt_is_blocked_by_default(self):
+        import hashlib
+
+        self.brain.init_brain()
+        payload = {"context": "Untrusted legacy context", "type": "session_receipt"}
+        serialized = json.dumps(payload, sort_keys=True).encode("utf-8")
+        payload["signature"] = hashlib.sha256(serialized).hexdigest()
+        (self.brain.brain_dir / "legacy-blocked.json").write_text(json.dumps(payload))
+
+        result = self.brain.boot_session()
+        self.assertIsNone(result["recent_context"])
+
+    def test_legacy_cloud_key_migrates_out_of_config(self):
+        key_file = Path(self.test_dir) / "protected-cloud.key"
+        previous = os.environ.get("STARTQ_CLOUD_KEY_FILE")
+        os.environ["STARTQ_CLOUD_KEY_FILE"] = str(key_file)
+        try:
+            self.brain.init_brain()
+            config = self.brain.get_config()
+            config["cloud"] = {
+                "enabled": True,
+                "brain_url": "https://brain.example.com",
+                "api_key": "legacy-secret",
+            }
+            self.brain.save_config(config)
+
+            self.assertTrue(self.brain._load_cloud_config())
+            migrated = self.brain.get_config()["cloud"]
+            self.assertNotIn("api_key", migrated)
+            self.assertEqual(key_file.read_text().strip(), "legacy-secret")
+        finally:
+            if previous is None:
+                os.environ.pop("STARTQ_CLOUD_KEY_FILE", None)
+            else:
+                os.environ["STARTQ_CLOUD_KEY_FILE"] = previous
         
 if __name__ == "__main__":
     unittest.main()
