@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "startq"
-version = "0.4.0"
+version = "0.5.0"
 authors = [
-  { name="Phil Hills", email="phil@philhills.ai" },
+  { name="Phil Hills", email="phil@a2ac.ai" },
 ]
-description = "Never lose your AI chats or work again. Boot, monitor, and shut down your AI workflow."
-readme = {file = "README.py", content-type = "text/plain"}
+description = "Local-first session journaling and integrity verification for AI-assisted development."
+readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
 license = "MIT"
 classifiers = [

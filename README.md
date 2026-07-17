@@ -1,225 +1,124 @@
-<div align="center">
-
-<br>
-
 # StartQ
 
-**Never lose your AI work again.**
+StartQ is a local-first session journal for AI-assisted development. It saves concise session context, records decisions and actions, captures useful Git state, and verifies receipt integrity when the next session starts.
 
 [![PyPI](https://img.shields.io/pypi/v/startq?color=0969da&label=PyPI&style=flat-square)](https://pypi.org/project/startq/)
 [![Python](https://img.shields.io/pypi/pyversions/startq?color=0969da&style=flat-square)](https://pypi.org/project/startq/)
 [![License](https://img.shields.io/badge/License-MIT-0969da?style=flat-square)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/Dependencies-Zero-2da44e?style=flat-square)]()
 
-```
+```bash
 pip install startq
 ```
 
-<br>
+StartQ uses only the Python standard library at runtime.
 
-</div>
+## The workflow
 
-## Your AI Workflow Is a Computer. Boot It Like One.
-
-When you turn on your PC, the BIOS runs, the OS loads your settings, and your last session comes back exactly where you left it. When you shut down, the OS saves your state so tomorrow picks up clean.
-
-Your AI workflow should work the same way.
-
-You have API connections, database credentials, multiple AI models, agent scripts, deployment pipelines, live services. You have context: decisions made yesterday, bugs found last week, architecture from last month. Every time you start a new AI session, all of that is gone.
-
-**StartQ fixes that.**
-
-```
+```text
 StartQ              AutoQ               EndQ
-POWER ON            MONITORING          SHUTDOWN
+BOOT                 JOURNAL             SHUTDOWN
 
-Health check        Record actions      Save chat session
-Load last chat      Track decisions     Convert to JSONL
-Verify signatures   Log milestones      Git snapshot
-Spawn daemons       Search history      Sign receipt
-
-Ready               Running             Saved
+Verify receipts      Record actions      Save context
+Load last summary    Track decisions     Capture Git state
+Check local state    Search history      Capture transcript
+Start daemons        Export records      Sign receipt
 ```
 
-Three Python scripts. Zero dependencies. Pure standard library.
+StartQ does not replace your model, IDE, or agent framework. It creates a small durable record around those tools so a fresh session has a trustworthy place to resume.
 
----
-
-## Quick Start
+## Quick start
 
 ```bash
-pip install startq
-
-startq init                                    # Create local brain
-startq boot                                    # Load previous context
-
-startq record "Connected Stripe API" -t action
-startq record "JWT over session cookies" -t decision
-startq log                                     # View recordings
-
-startq shutdown -c "Payment API complete."     # Save everything
-```
-
-EndQ captures your entire AI chat session, converts it to JSONL, and stores it locally. Tomorrow:
-
-```bash
+startq init
 startq boot
-# Context restored: "Payment API complete."
-# Full chat transcript from yesterday loaded.
-# Zero amnesia.
+
+startq record "Connected the payment API" -t action
+startq record "Use JWT instead of session cookies" -t decision
+startq log
+
+startq shutdown -c "Payment API complete; integration tests remain."
 ```
 
----
+The next `startq boot` verifies the newest receipt and restores its context summary.
 
 ## Commands
 
-| Command | Purpose | PC Equivalent |
-|:--------|:--------|:-------------|
-| `startq init` | Create local brain | Format disk |
-| `startq boot` | Load context, spawn daemons | Power on |
-| `startq record "msg"` | Log an activity | Write to journal |
-| `startq log` | View recorded activities | Read logs |
-| `startq end -c "msg"` | Quick session close | Sleep |
-| `startq shutdown -c "msg"` | Full graceful shutdown | Hibernate |
-| `startq upgrade` | Connect to cloud brain | Mount network drive |
-| `startq status` | Show current state | System info |
+| Command | Purpose |
+|---|---|
+| `startq init` | Create `.startq/` and a local signing key |
+| `startq boot` | Verify recent state and load the last context summary |
+| `startq record "message"` | Append an activity to the session journal |
+| `startq log` | Read, search, summarize, or export journal entries |
+| `startq end -c "summary"` | Save a lightweight session receipt |
+| `startq shutdown -c "summary"` | Save a full receipt with Git and available transcript metadata |
+| `startq upgrade` | Configure an optional cloud Brain endpoint |
+| `startq status` | Show local session and cloud configuration status |
 
----
+Recording categories are `note`, `action`, `decision`, `bug`, `milestone`, and `idea`.
 
-## Recording Categories
+## Local storage
 
-```bash
-startq record "Fixed the auth bug"                -t action
-startq record "Using JWT over session cookies"     -t decision
-startq record "Token refresh fails after 30 min"   -t bug
-startq record "MVP complete"                       -t milestone
-startq record "Maybe add WebSocket support"        -t idea
-```
-
-| Category | Flag | Use For |
-|:---------|:-----|:--------|
-| `note` | *(default)* | General observations |
-| `action` | `-t action` | Things you did |
-| `decision` | `-t decision` | Choices and rationale |
-| `bug` | `-t bug` | Issues found |
-| `milestone` | `-t milestone` | Significant completions |
-| `idea` | `-t idea` | Future possibilities |
-
----
-
-## Cloud Sync
-
-```bash
-startq upgrade --url https://your-brain.run.app --key sk-xxx
-
-startq boot             # auto-pulls from cloud
-startq shutdown -c "..." # auto-pushes to cloud
-startq boot --local      # force local-only
-```
-
----
-
-## How It Works
-
-```
+```text
 .startq/
-  brain/                Signed session receipts (JSON)
-    a1b2c3d4.json       Session from yesterday
-    e5f6g7h8.json       Session from today
-  sessions/             Saved chat transcripts (TXT)
-    2026-05-19_0830_a1b2.txt
-    2026-05-20_2200_c3d4.txt
-  recordings/           Activity logs (JSONL)
-    2026-05-19.jsonl
-    2026-05-20.jsonl
-  config.json           Identity + daemons + cloud
-  state.json            Init timestamp
+  brain/             Session receipts
+  recordings/        Append-only daily JSONL journals
+  sessions/          Captured chat transcripts, when available
+  config.json        Non-secret configuration
+  state.json         Initialization state
 ```
 
-**Chat sessions are saved automatically.** When you run `startq shutdown`, EndQ finds your current AI chat (Antigravity IDE, Claude Code, or any IDE that stores conversation logs), saves the full transcript as a `.txt` file, and embeds a checksum in the signed receipt. On next `startq boot`, your last session context is restored so you pick up exactly where you left off.
+Add `.startq/` to your project's ignore rules. It can contain private prompts, decisions, source context, and credentials.
 
-**Session receipts** are SHA-256 signed. On boot, StartQ recalculates the hash. If it does not match, the session was tampered with and its context is rejected.
+## Receipt integrity
 
-**Recordings** are append-only JSONL files, one per day. Override `SessionRecorder.write_record()` to store anywhere: database, REST API, flat text, whatever format works for you.
+StartQ 0.5 receipts use HMAC-SHA256 with a randomly generated 256-bit key stored in the current user's config directory, outside the workspace. On Linux and WSL this defaults to `~/.config/startq/keys/`; on Windows it uses `%LOCALAPPDATA%\\StartQ\\keys`. On boot, StartQ verifies the receipt before restoring its context. A modified receipt is rejected.
 
----
+Receipts from StartQ 0.4 and earlier used an unkeyed SHA-256 digest. They are blocked by default because accepting one silently would permit a downgrade attack. To migrate a receipt you trust, run `startq boot --allow-legacy`, review the warning and restored summary, then close the session to create a new HMAC receipt. An unkeyed digest can detect accidental changes, but it does not authenticate the writer.
 
-## Add to Antigravity IDE Workflows
+The HMAC design protects against receipt edits by a process that cannot read the signing key. It does not protect against an administrator or compromised process that can read both the receipts and key. Set `STARTQ_SIGNING_KEY_FILE` to an explicitly managed key path when moving a brain between machines or accessing one workspace from both Windows and WSL. Losing the key makes new-format receipts unverifiable.
 
-If you use Antigravity IDE, add StartQ as a workflow so it runs automatically every session. Drop this in `.agent/workflows/startq.py`:
+## Transcript capture
+
+`startq shutdown` can capture the most recent Antigravity IDE session when a supported local transcript is available. It stores a local text copy and includes its checksum and path in the receipt. StartQ boot restores the context summary; it does not inject the entire transcript into another model automatically.
+
+Transcript capture reads local IDE state and may include sensitive prompts or source material. Review `.startq/sessions/` before sharing or syncing it.
+
+## Optional cloud sync
+
+```bash
+startq upgrade --url https://your-brain.example.com
+startq boot --cloud
+startq shutdown -c "Session complete" --cloud
+```
+
+The API-key prompt does not echo. Keys are stored in the current user's config directory, not `config.json` or the workspace. Managed environments can set `STARTQ_CLOUD_API_KEY` instead. Set `STARTQ_CLOUD_KEY_FILE` to choose an explicit credential file. Passing `--key` remains supported for automation, but can expose the key in shell history or process listings.
+
+The cloud endpoint is expected to implement the JSON operations documented by `startq/cloud_brain.py`. Cloud transport and server-side retention are controlled by that endpoint, not by StartQ.
+
+## Use as a library
 
 ```python
-# Before starting any session:
-#   1. pip install startq (if not installed)
-#   2. startq init (first time only)
-#   3. startq boot
-#
-# Before ending any session:
-#   1. startq shutdown -c "summary of what happened"
-#
-# To record important decisions mid-session:
-#   startq record "your note here" -t decision
+from startq.autoq import SessionRecorder
+from startq.brain import BrainManager
+
+brain = BrainManager(".startq")
+brain.init_brain()
+
+recorder = SessionRecorder(".startq")
+recorder.record("Selected PostgreSQL", category="decision")
+
+brain.end_session("Database decision recorded")
 ```
 
-Even if Antigravity pushes an update mid-session, your state is already persisted locally with cryptographic signatures.
+See [examples](examples/) for custom storage and workflow patterns.
 
----
-
-## Why This Exists
-
-On May 19, 2026, a major AI IDE pushed an update that wiped environment state for developers mid-session. Workflows deleted. Context gone. Hours of work lost.
-
-The developer who built StartQ did not lose anything. Session state was already persisted locally with cryptographic signatures before the update hit.
-
-> StartQ is insurance for your AI workflow. Your context survives IDE crashes, model swaps, environment resets, and cloud outages.
-
----
-
-## Architecture
-
-| File | Purpose | Lines |
-|:-----|:--------|:------|
-| `startq/brain.py` | Local persistence + cloud sync | ~180 |
-| `startq/autoq.py` | Session recorder | ~140 |
-| `startq/endq.py` | Shutdown + transcript saving | ~280 |
-| `startq/cli.py` | Command-line interface | ~280 |
-| `startq/cloud_brain.py` | Optional REST client for cloud | ~130 |
-
-Read the source in 10 minutes. Fork and customize in 20. These are just Python scripts.
-
----
-
-## Works With Everything
-
-StartQ is tool-agnostic:
-
-**Claude Code** / **Cursor** / **Antigravity IDE** / **Gemini CLI** / **Custom scripts**
-
----
-
-## Contributing
+## Development
 
 ```bash
-git clone https://github.com/Phil-Hills/startq.git
-cd startq
-pip install -e .
-python -m pytest tests/
+python -m unittest discover -v
+python -m build
 ```
 
-Contributions welcome. See `CONTRIBUTING.py` for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
----
-
-<div align="center">
-
-**License: MIT**
-
-Built in Seattle by [Phil Hills](https://github.com/Phil-Hills)
-
-**Let's make sure no developer ever loses their work again.**
-
-```
-pip install startq
-```
-
-</div>
+StartQ is MIT licensed. Built by [Phil Hills](https://github.com/Phil-Hills).
